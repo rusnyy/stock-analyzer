@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Stock Analyzer – Free</title>
+
+  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/technicalindicators@3.0.0/dist/browser.js"></script>
+
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+    #chart { width: 900px; height: 450px; margin-top: 20px; }
+    input { padding: 8px; font-size: 16px; }
+    button { padding: 8px 14px; font-size: 16px; cursor: pointer; }
+    pre { background: white; padding: 15px; width: 900px; }
+  </style>
+</head>
+
+<body>
+  <h2>Stock Analyzer (Free & Simple)</h2>
+
+  <input id="ticker" placeholder="Zadaj ticker (napr. NVDA)">
+  <button onclick="loadData()">Analyzuj</button>
+
+  <div id="chart"></div>
+  <pre id="output"></pre>
+
+  <script>
+    async function loadData() {
+      const ticker = document.getElementById("ticker").value.toUpperCase();
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=6mo&interval=1d`;
+
+      const data = await fetch(url).then(r => r.json());
+      const result = data.chart.result[0];
+
+      const candles = result.indicators.quote[0];
+      const timestamps = result.timestamp;
+
+      const ohlc = timestamps.map((t, i) => ({
+        time: t,
+        open: candles.open[i],
+        high: candles.high[i],
+        low: candles.low[i],
+        close: candles.close[i]
+      }));
+
+      const chart = LightweightCharts.createChart(document.getElementById("chart"), {
+        width: 900,
+        height: 450,
+        layout: { background: { color: "#ffffff" }, textColor: "#333" }
+      });
+
+      const candleSeries = chart.addCandlestickSeries();
+      candleSeries.setData(ohlc);
+
+      const closes = candles.close;
+      const rsi = technicalindicators.RSI.calculate({ values: closes, period: 14 });
+      const lastRSI = rsi[rsi.length - 1];
+
+      const ema50 = technicalindicators.EMA.calculate({ values: closes, period: 50 });
+      const ema200 = technicalindicators.EMA.calculate({ values: closes, period: 200 });
+
+      const trend =
+        ema50[ema50.length - 1] > ema200[ema200.length - 1]
+          ? "Dlhodobý trend: UPTREND"
+          : "Dlhodobý trend: DOWNTREND";
+
+      document.getElementById("output").textContent =
+        `Ticker: ${ticker}\n` +
+        `RSI (14): ${lastRSI.toFixed(2)}\n` +
+        (lastRSI < 30 ? "Trh je PREPREDANÝ\n" :
+         lastRSI > 70 ? "Trh je PREKÚPENÝ\n" :
+         "Trh je NEUTRÁLNY\n") +
+        `${trend}`;
+    }
+  </script>
+</body>
+</html>
